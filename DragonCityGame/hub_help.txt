@@ -1,0 +1,18 @@
+node:internal/modules/cjs/loader:1466
+  throw err;
+  ^
+
+Error: Cannot find module '--help'
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1463:15)
+    at defaultResolveImpl (node:internal/modules/cjs/loader:1073:19)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1078:22)
+    at Module._load (node:internal/modules/cjs/loader:1249:25)
+    at c._load (node:electron/js2c/node_init:2:18047)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:262:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:169:5)
+    at node:internal/main/run_main_module:33:47 {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: []
+}
+
+Node.js v24.14.0

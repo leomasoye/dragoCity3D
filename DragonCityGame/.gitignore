@@ -1,0 +1,51 @@
+# This .gitignore is configured for Unity projects.
+# It ensures only source code, assets, project settings and pipelines are tracked,
+# excluding heavy cache, temp files and editor-local settings.
+
+# Unity generated cache & temporary directories
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+[Mm]emoryCaptures/
+[Aa]sset[Cc]ache/
+
+# Visual Studio / Rider / VS Code solution & project files
+ExportedObj/
+.consulo/
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.opendb
+*.VC.db
+.vs/
+.idea/
+.vscode/
+
+# Unity crash reports & traces
+sysinfo.txt
+*.stackdump
+*.dwlt
+
+# Builds
+*.apk
+*.aab
+*.unitypackage
+*.app
+
+# OS generated
+.DS_Store
+Thumbs.db
+desktop.ini
+
