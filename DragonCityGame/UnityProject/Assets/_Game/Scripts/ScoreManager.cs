@@ -35,6 +35,16 @@ namespace DragonCity
         public int buildingsDestroyed = 0;
         public int totalBuildings = 0;
 
+        [Header("Speedrun Timer & Victory Condition")]
+        public float gameTime = 0f;
+        public bool isGameFinished = false;
+        public bool timerRunning = false;
+        public int maxComboAchieved = 1;
+        public string finalTimeFormatted = "";
+        public string speedGrade = "";
+        public string speedGradeTitle = "";
+        public Color speedGradeColor = Color.white;
+
         [Header("Combo System")]
         public int currentCombo = 0;
         public int comboMultiplier = 1;
@@ -127,6 +137,23 @@ namespace DragonCity
 
         private void Update()
         {
+            // 0. Speedrun Timer & Max Combo Tracking
+            if (!isGameFinished)
+            {
+                if (timerRunning || buildingsDestroyed > 0 || totalScore > 0)
+                {
+                    timerRunning = true;
+                    gameTime += Time.deltaTime;
+                }
+            }
+            maxComboAchieved = Mathf.Max(maxComboAchieved, currentCombo);
+
+            // Rebuild & restart shortcut
+            if (isGameFinished && Input.GetKeyDown(KeyCode.R))
+            {
+                RestartCity();
+            }
+
             // 1. Smoothly roll displayed score counter
             if (displayedScore < totalScore)
             {
@@ -182,7 +209,80 @@ namespace DragonCity
             comboTimer = 0f;
             currentRankIndex = 0;
             activePopups.Clear();
+
+            // Reset Speedrun state
+            isGameFinished = false;
+            gameTime = 0f;
+            timerRunning = false;
+            maxComboAchieved = 1;
+            finalTimeFormatted = "";
+            speedGrade = "";
+
             NotifyDragonRankEvolution(0);
+        }
+
+        public void TriggerGameVictory()
+        {
+            isGameFinished = true;
+            timerRunning = false;
+
+            // Format final time: MM:SS.ff
+            int minutes = Mathf.FloorToInt(gameTime / 60f);
+            int seconds = Mathf.FloorToInt(gameTime % 60f);
+            int fraction = Mathf.FloorToInt((gameTime * 100f) % 100f);
+            finalTimeFormatted = string.Format("{0:00}:{1:00}.{2:00}", minutes, seconds, fraction);
+
+            // Compute speed grade
+            if (gameTime <= 120f)
+            {
+                speedGrade = "RANG S+";
+                speedGradeTitle = "DIVINITÉ DU CHAOS";
+                speedGradeColor = new Color(1f, 0.25f, 0.95f);
+            }
+            else if (gameTime <= 180f)
+            {
+                speedGrade = "RANG S";
+                speedGradeTitle = "TEMPÊTE ARDENTE";
+                speedGradeColor = new Color(1f, 0.85f, 0.15f);
+            }
+            else if (gameTime <= 270f)
+            {
+                speedGrade = "RANG A";
+                speedGradeTitle = "FLÉAU LÉGENDAIRE";
+                speedGradeColor = new Color(1f, 0.45f, 0.15f);
+            }
+            else if (gameTime <= 360f)
+            {
+                speedGrade = "RANG B";
+                speedGradeTitle = "CONQUÉRANT URBAIN";
+                speedGradeColor = new Color(0.3f, 0.85f, 1f);
+            }
+            else
+            {
+                speedGrade = "RANG C";
+                speedGradeTitle = "DRAGON PERSÉVÉRANT";
+                speedGradeColor = new Color(0.75f, 0.75f, 0.8f);
+            }
+
+            PlayHeavyImpact();
+            ThirdPersonCamera.Instance?.TriggerShake(1.6f, 1.4f);
+            TriggerBanner("🏆 VILLE 100% ANÉANTIE ! 🏆", $"Temps : {finalTimeFormatted} | Évaluation : {speedGrade}", speedGradeColor);
+
+            Debug.Log($"[ScoreManager] VICTORY! All {totalBuildings} buildings demolished in {finalTimeFormatted}!");
+        }
+
+        public void RestartCity()
+        {
+#if UNITY_2023_1_OR_NEWER || UNITY_6000_0_OR_NEWER
+            var builder = FindAnyObjectByType<CityBuilder>();
+#else
+            var builder = FindObjectOfType<CityBuilder>();
+#endif
+            if (builder != null)
+            {
+                builder.BuildCity();
+            }
+            ResetScore();
         }
 
         public void OnDamageTick(float damage)
@@ -231,6 +331,12 @@ namespace DragonCity
 
             // 6. Check Rank Advancement
             CheckRankProgression();
+
+            // 7. Check Game Victory (100% of buildings demolished!)
+            if (totalBuildings > 0 && buildingsDestroyed >= totalBuildings && !isGameFinished)
+            {
+                TriggerGameVictory();
+            }
         }
 
         private int CalculateMultiplier(int combo)
@@ -472,6 +578,12 @@ namespace DragonCity
             {
                 DrawBanner();
             }
+
+            // 5. End Game Victory Screen (if all buildings demolished)
+            if (isGameFinished)
+            {
+                DrawVictoryModal();
+            }
         }
 
         private void InitStyles()
@@ -536,12 +648,12 @@ namespace DragonCity
             float panelY = 18f;
 
             // Translucent Dark Background Card
-            GUI.color = new Color(0.06f, 0.07f, 0.09f, 0.72f);
-            GUI.DrawTexture(new Rect(panelX - 10f, panelY - 8f, panelWidth + 18f, 102f), whitePixel);
+            GUI.color = new Color(0.06f, 0.07f, 0.09f, 0.76f);
+            GUI.DrawTexture(new Rect(panelX - 10f, panelY - 8f, panelWidth + 18f, 122f), whitePixel);
 
             // Glowing Accent Border on the right
             GUI.color = new Color(1f, 0.55f, 0.1f, 0.9f);
-            GUI.DrawTexture(new Rect(panelX + panelWidth + 6f, panelY - 8f, 3f, 102f), whitePixel);
+            GUI.DrawTexture(new Rect(panelX + panelWidth + 6f, panelY - 8f, 3f, 122f), whitePixel);
 
             // 1. Total Score (Large & punchy)
             scoreLabelStyle.fontSize = Mathf.RoundToInt(25 * scorePunchScale);
@@ -557,10 +669,17 @@ namespace DragonCity
             string destrStr = $"DÉTRUITS : {buildingsDestroyed} / {totalBuildings} ({pct:F1}%)";
             DrawOutlinedText(new Rect(panelX, panelY + 48f, panelWidth, 20f), destrStr, smallLabelStyle, new Color(1f, 0.45f, 0.3f), Color.black, 1);
 
-            // 4. Current Rank
+            // 4. Speedrun Timer
+            int m = Mathf.FloorToInt(gameTime / 60f);
+            int s = Mathf.FloorToInt(gameTime % 60f);
+            int f = Mathf.FloorToInt((gameTime * 10f) % 10f);
+            string timeStr = isGameFinished ? $"TEMPS FINAL : {finalTimeFormatted}" : $"TEMPS : {m:00}:{s:00}.{f:0}";
+            DrawOutlinedText(new Rect(panelX, panelY + 68f, panelWidth, 20f), timeStr, smallLabelStyle, new Color(0.35f, 0.95f, 1f), Color.black, 1);
+
+            // 5. Current Rank
             var rank = RANKS[currentRankIndex];
             string rankStr = $"[ RANG : {rank.title.ToUpper()} ]";
-            DrawOutlinedText(new Rect(panelX, panelY + 68f, panelWidth, 20f), rankStr, smallLabelStyle, rank.col, Color.black, 1);
+            DrawOutlinedText(new Rect(panelX, panelY + 88f, panelWidth, 20f), rankStr, smallLabelStyle, rank.col, Color.black, 1);
 
             GUI.color = Color.white;
         }
@@ -650,6 +769,109 @@ namespace DragonCity
                              new Color(0.95f, 0.95f, 0.95f, alpha), new Color(0f, 0f, 0f, alpha), 1);
 
             GUI.color = Color.white;
+        }
+
+        private void DrawVictoryModal()
+        {
+            float modalW = 660f;
+            float modalH = 430f;
+            float modalX = (Screen.width - modalW) * 0.5f;
+            float modalY = (Screen.height - modalH) * 0.5f;
+
+            // 1. Full-screen subtle dark backdrop
+            GUI.color = new Color(0.02f, 0.02f, 0.04f, 0.78f);
+            GUI.DrawTexture(new Rect(0, 0, Screen.width, Screen.height), whitePixel);
+
+            // 2. Central Modal Card
+            GUI.color = new Color(0.06f, 0.07f, 0.10f, 0.95f);
+            GUI.DrawTexture(new Rect(modalX, modalY, modalW, modalH), whitePixel);
+
+            // 3. Glowing Radiant Border
+            GUI.color = speedGradeColor;
+            GUI.DrawTexture(new Rect(modalX, modalY, modalW, 4f), whitePixel);
+            GUI.DrawTexture(new Rect(modalX, modalY + modalH - 4f, modalW, 4f), whitePixel);
+            GUI.DrawTexture(new Rect(modalX, modalY, 4f, modalH), whitePixel);
+            GUI.DrawTexture(new Rect(modalX + modalW - 4f, modalY, 4f, modalH), whitePixel);
+
+            GUI.color = Color.white;
+
+            // Title
+            GUIStyle vTitleStyle = new GUIStyle(bannerTitleStyle)
+            {
+                fontSize = 25,
+                fontStyle = FontStyle.Bold
+            };
+            DrawOutlinedText(new Rect(modalX, modalY + 16f, modalW, 34f), "🏆 VILLE 100% ANÉANTIE ! VICTOIRE TOTALE ! 🏆", vTitleStyle, new Color(1f, 0.88f, 0.25f), Color.black, 2);
+
+            // Time Box
+            GUIStyle vTimeLabelStyle = new GUIStyle(smallLabelStyle)
+            {
+                alignment = TextAnchor.MiddleCenter,
+                fontSize = 13
+            };
+            DrawOutlinedText(new Rect(modalX, modalY + 54f, modalW, 18f), "CHRONOMÈTRE DE DESTRUCTION COMPLÈTE", vTimeLabelStyle, new Color(0.85f, 0.85f, 0.85f), Color.black, 1);
+
+            GUIStyle vTimeValStyle = new GUIStyle(comboLabelStyle)
+            {
+                fontSize = 44,
+                fontStyle = FontStyle.Bold
+            };
+            DrawOutlinedText(new Rect(modalX, modalY + 72f, modalW, 50f), finalTimeFormatted, vTimeValStyle, new Color(0.35f, 0.95f, 1f), Color.black, 3);
+
+            // Speed Grade Banner
+            GUIStyle vGradeStyle = new GUIStyle(comboLabelStyle)
+            {
+                fontSize = 24,
+                fontStyle = FontStyle.Bold
+            };
+            DrawOutlinedText(new Rect(modalX, modalY + 128f, modalW, 32f), $"{speedGrade} : {speedGradeTitle}", vGradeStyle, speedGradeColor, Color.black, 2);
+
+            // Stats Grid
+            float statsY = modalY + 168f;
+            float statsW = modalW - 60f;
+            float colX = modalX + 30f;
+
+            GUI.color = new Color(0.12f, 0.13f, 0.18f, 0.85f);
+            GUI.DrawTexture(new Rect(colX, statsY, statsW, 142f), whitePixel);
+            GUI.color = Color.white;
+
+            GUIStyle statKeyStyle = new GUIStyle(smallLabelStyle) { alignment = TextAnchor.MiddleLeft, fontSize = 14 };
+            GUIStyle statValStyle = new GUIStyle(smallLabelStyle) { alignment = TextAnchor.MiddleRight, fontSize = 14, fontStyle = FontStyle.Bold };
+
+            // Row 1: Score
+            DrawOutlinedText(new Rect(colX + 15f, statsY + 10f, statsW * 0.5f, 22f), "SCORE DE CARNAGE :", statKeyStyle, Color.white, Color.black, 1);
+            DrawOutlinedText(new Rect(colX + statsW * 0.5f, statsY + 10f, statsW * 0.5f - 15f, 22f), $"{totalScore:N0} PTS", statValStyle, new Color(1f, 0.92f, 0.35f), Color.black, 1);
+
+            // Row 2: Bâtiments
+            DrawOutlinedText(new Rect(colX + 15f, statsY + 38f, statsW * 0.5f, 22f), "BÂTIMENTS PULVÉRISÉS :", statKeyStyle, Color.white, Color.black, 1);
+            DrawOutlinedText(new Rect(colX + statsW * 0.5f, statsY + 38f, statsW * 0.5f - 15f, 22f), $"{buildingsDestroyed} / {totalBuildings} (100%)", statValStyle, new Color(1f, 0.45f, 0.25f), Color.black, 1);
+
+            // Row 3: Combo
+            DrawOutlinedText(new Rect(colX + 15f, statsY + 66f, statsW * 0.5f, 22f), "MEILLEUR COMBO RÉALISÉ :", statKeyStyle, Color.white, Color.black, 1);
+            DrawOutlinedText(new Rect(colX + statsW * 0.5f, statsY + 66f, statsW * 0.5f - 15f, 22f), $"x{maxComboAchieved} !", statValStyle, new Color(0.25f, 0.95f, 0.45f), Color.black, 1);
+
+            // Row 4: Dragon Rank
+            var finalRank = RANKS[currentRankIndex];
+            DrawOutlinedText(new Rect(colX + 15f, statsY + 94f, statsW * 0.5f, 22f), "RANG FINAL DU DRAGON :", statKeyStyle, Color.white, Color.black, 1);
+            DrawOutlinedText(new Rect(colX + statsW * 0.5f, statsY + 94f, statsW * 0.5f - 15f, 22f), $"{finalRank.title.ToUpper()}", statValStyle, finalRank.col, Color.black, 1);
+
+            // Restart Button at Bottom
+            float btnW = 400f;
+            float btnH = 44f;
+            float btnX = modalX + (modalW - btnW) * 0.5f;
+            float btnY = modalY + modalH - 58f;
+
+            GUIStyle btnStyle = new GUIStyle(GUI.skin.button)
+            {
+                fontSize = 15,
+                fontStyle = FontStyle.Bold
+            };
+            btnStyle.normal.textColor = Color.white;
+
+            if (GUI.Button(new Rect(btnX, btnY, btnW, btnH), "🔄 [ R ] RECONSTRUIRE LA VILLE & REJOUER", btnStyle))
+            {
+                RestartCity();
+            }
         }
 
         private void DrawOutlinedText(Rect rect, string text, GUIStyle style, Color textColor, Color outlineColor, int outlineDist)
