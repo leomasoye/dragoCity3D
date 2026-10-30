@@ -74,6 +74,12 @@ namespace DragonCity
             // Visual impact spark/smoke puff at hit point
             SpawnHitPuff(hitPoint, hitNormal);
 
+            // Minor damage score tick
+            if (ScoreManager.Instance != null)
+            {
+                ScoreManager.Instance.OnDamageTick(damage);
+            }
+
             // Structural shaking when critically damaged
             if (damageRatio > 0.65f)
             {
@@ -111,14 +117,20 @@ namespace DragonCity
                 }
             }
 
-            // 3. Audio & Huge Smoke/Dust FX
+            // 3. Award Destruction Score & Trigger Combos
+            if (ScoreManager.Instance != null)
+            {
+                ScoreManager.Instance.OnBuildingDestroyed(transform.position, initialScale.y, initialScale.x * initialScale.z);
+            }
+
+            // 4. Audio & Huge Smoke/Dust FX
             SpawnCollapseExplosionFX();
             PlayProceduralRumbleSound();
 
-            // 4. Shatter Building into Physical Debris Pieces
+            // 5. Shatter Building into Physical Debris Pieces
             ShatterIntoPhysicalChunks(impactPoint);
 
-            // 5. Leave a scorched rubble pile at the base
+            // 6. Leave a scorched rubble pile at the base
             CreateScorchedRubbleBase();
         }
 

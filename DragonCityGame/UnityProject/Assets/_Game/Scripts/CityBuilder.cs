@@ -101,6 +101,8 @@ namespace DragonCity
 
             Material baseMat = new Material(Shader.Find("Standard") ?? Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Mobile/Diffuse"));
 
+            int totalCreated = 0;
+
             for (int x = 0; x < gridWidth; x++)
             {
                 for (int z = 0; z < gridLength; z++)
@@ -108,6 +110,8 @@ namespace DragonCity
                     // Leave a central runway / plaza for dragon launch
                     if (Mathf.Abs(x - gridWidth / 2) <= 1 && Mathf.Abs(z - gridLength / 2) <= 1)
                         continue;
+
+                    totalCreated++;
 
                     float posX = (x * streetWidth) - halfW;
                     float posZ = (z * streetWidth) - halfL;
@@ -139,6 +143,12 @@ namespace DragonCity
                     building.AddComponent<DestructibleBuilding>();
                     building.AddComponent<BurnableBuilding>();
                 }
+            }
+
+            if (ScoreManager.Instance != null)
+            {
+                ScoreManager.Instance.SetTotalBuildings(totalCreated);
+                ScoreManager.Instance.ResetScore();
             }
         }
     }

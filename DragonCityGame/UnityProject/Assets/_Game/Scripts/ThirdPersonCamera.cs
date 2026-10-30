@@ -9,10 +9,13 @@ namespace DragonCity
         [Header("Target Tracking")]
         public Transform target;
         public Vector3 followOffset = new Vector3(0f, 4.5f, -12f);
+        private Vector3 initialFollowOffset = new Vector3(0f, 4.5f, -12f);
+        private float dragonScaleMultiplier = 1.0f;
+        private float currentCameraScale = 1.0f;
 
         [Header("Smoothing")]
         public float positionSmoothSpeed = 10f;
-        public float rotationSmoothSpeed = 8f;
+        public float rotationSmoothSpeed = 12f;
         public float lookAheadDistance = 25f;
 
         [Header("Dynamic FOV (Speed effect)")]
@@ -32,6 +35,7 @@ namespace DragonCity
         private void Awake()
         {
             Instance = this;
+            initialFollowOffset = followOffset;
 
             cam = GetComponent<Camera>();
             if (cam == null) cam = Camera.main;
@@ -67,8 +71,14 @@ namespace DragonCity
         {
             if (target == null) return;
 
-            // 1. Follow Position with local offset
-            Vector3 desiredPosition = target.TransformPoint(followOffset);
+            // 1. Follow Position with local offset adapted to dragon scale
+            currentCameraScale = Mathf.Lerp(currentCameraScale, dragonScaleMultiplier, Time.deltaTime * 3.5f);
+            Vector3 dynamicOffset = new Vector3(
+                initialFollowOffset.x,
+                initialFollowOffset.y * (1f + (currentCameraScale - 1f) * 0.28f),
+                initialFollowOffset.z * (1f + (currentCameraScale - 1f) * 0.36f)
+            );
+            Vector3 desiredPosition = target.TransformPoint(dynamicOffset);
             transform.position = Vector3.Lerp(transform.position, desiredPosition, positionSmoothSpeed * Time.deltaTime);
 
             // 2. Follow Look Rotation towards front of dragon
@@ -77,7 +87,9 @@ namespace DragonCity
 
             if (toTarget != Vector3.zero)
             {
-                Quaternion targetRot = Quaternion.LookRotation(toTarget, target.up);
+                // Horizon-stabilized up vector with subtle banking tilt
+                Vector3 camUp = Vector3.Slerp(Vector3.up, target.up, 0.20f);
+                Quaternion targetRot = Quaternion.LookRotation(toTarget, camUp);
                 transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, rotationSmoothSpeed * Time.deltaTime);
             }
 
@@ -104,6 +116,11 @@ namespace DragonCity
             shakeIntensity = Mathf.Max(shakeIntensity, intensity);
             shakeDuration = Mathf.Max(shakeDuration, duration);
             shakeTimer = shakeDuration;
+        }
+
+        public void SetDragonScaleMultiplier(float scale)
+        {
+            dragonScaleMultiplier = Mathf.Max(0.5f, scale);
         }
 
         public void SetTarget(Transform newTarget)

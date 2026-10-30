@@ -39,6 +39,7 @@ public class SceneBootstrapper
 
             // 4. City Builder Manager
             GameObject cityManager = new GameObject("City_Manager");
+            cityManager.AddComponent<ScoreManager>();
             CityBuilder builder = cityManager.AddComponent<CityBuilder>();
             builder.gridWidth = 16;
             builder.gridLength = 16;
